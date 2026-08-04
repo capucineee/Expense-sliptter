@@ -36,13 +36,21 @@ export default function FamilyExpenseSplitter() {
   };
 
   const saveFamilies = async (newFamilies) => {
-    await storage.set('families-v2', JSON.stringify(newFamilies));
     setFamilies(newFamilies);
+    try {
+      await storage.set('families-v2', JSON.stringify(newFamilies));
+    } catch (e) {
+      console.error('Échec de la sauvegarde des familles', e);
+    }
   };
 
   const saveExpenses = async (newExpenses) => {
-    await storage.set('expenses-v2', JSON.stringify(newExpenses));
     setExpenses(newExpenses);
+    try {
+      await storage.set('expenses-v2', JSON.stringify(newExpenses));
+    } catch (e) {
+      console.error('Échec de la sauvegarde des dépenses', e);
+    }
   };
 
   // ===== GESTION FAMILLES =====
