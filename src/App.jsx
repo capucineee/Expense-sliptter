@@ -176,7 +176,7 @@ export default function FamilyExpenseSplitter() {
 
     families.forEach(family => {
       family.members.forEach(member => {
-        balances[member.id] = { name: member.name, familyName: family.name, balance: 0 };
+        balances[member.id] = { name: member.name, familyName: family.name, familyId: family.id, balance: 0 };
       });
     });
 
@@ -243,6 +243,53 @@ export default function FamilyExpenseSplitter() {
         fromFamily: debtor.familyName,
         to: creditor.name,
         toFamily: creditor.familyName,
+        amount: amount.toFixed(2)
+      });
+
+      balances[debtorId].balance += amount;
+      balances[creditorId].balance -= amount;
+    }
+
+    return transactions;
+  };
+
+  const calculateFamilySettlement = () => {
+    const memberBalances = calculateSettlement();
+    const familyBalances = {};
+
+    families.forEach(family => {
+      familyBalances[family.id] = { name: family.name, balance: 0 };
+    });
+
+    Object.values(memberBalances).forEach(({ familyId, balance }) => {
+      if (familyBalances[familyId]) {
+        familyBalances[familyId].balance += balance;
+      }
+    });
+
+    return familyBalances;
+  };
+
+  const getFamilyTransactions = () => {
+    const balances = Object.fromEntries(
+      Object.entries(calculateFamilySettlement()).map(([id, v]) => [id, { ...v }])
+    );
+    const transactions = [];
+
+    while (true) {
+      const debtors = Object.entries(balances).filter(([, v]) => v.balance < -0.01);
+      const creditors = Object.entries(balances).filter(([, v]) => v.balance > 0.01);
+
+      if (debtors.length === 0 || creditors.length === 0) break;
+
+      const [debtorId, debtor] = debtors[0];
+      const [creditorId, creditor] = creditors[0];
+
+      const amount = Math.min(-debtor.balance, creditor.balance);
+
+      transactions.push({
+        from: debtor.name,
+        to: creditor.name,
         amount: amount.toFixed(2)
       });
 
@@ -562,6 +609,37 @@ export default function FamilyExpenseSplitter() {
               <p className="text-green-600 font-semibold">✓ Tout est réglé !</p>
             )}
           </div>
+
+          {families.length > 1 && (
+            <div className="bg-white rounded-lg shadow-lg p-4 mb-4">
+              <h2 className="text-lg font-bold text-indigo-900 mb-3">🏠 Entre familles</h2>
+              <div className="space-y-2 mb-4">
+                {Object.entries(calculateFamilySettlement()).map(([id, data]) => (
+                  <div key={id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <p className="font-semibold text-indigo-900">{data.name}</p>
+                    <span className={`text-lg font-bold ${data.balance > 0 ? 'text-green-600' : data.balance < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                      {data.balance > 0 ? '+' : ''}{data.balance.toFixed(2)}€
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {getFamilyTransactions().length > 0 ? (
+                <div className="space-y-2">
+                  {getFamilyTransactions().map((t, i) => (
+                    <div key={i} className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
+                      <p className="text-indigo-900 text-sm">
+                        <span className="font-bold">{t.from}</span> doit{' '}
+                        <span className="font-bold text-lg text-yellow-600">{t.amount}€</span> à{' '}
+                        <span className="font-bold">{t.to}</span>
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-green-600 font-semibold">✓ Tout est réglé entre familles !</p>
+              )}
+            </div>
+          )}
 
           {/* Dépenses enregistrées */}
           {expenses.length > 0 && (
