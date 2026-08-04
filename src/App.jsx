@@ -647,7 +647,7 @@ export default function FamilyExpenseSplitter() {
               <h2 className="text-lg font-bold text-indigo-900 mb-3">📝 Toutes les dépenses</h2>
               <div className="space-y-2">
                 {expenses.map(expense => {
-                  const payerData = families.flatMap(f => f.members).find(m => m.id === expense.payer);
+                  const payerData = families.flatMap(f => f.members).find(m => String(m.id) === String(expense.payer));
                   return (
                     <div key={expense.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
                       <div>
