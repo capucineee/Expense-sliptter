@@ -181,7 +181,7 @@ export default function FamilyExpenseSplitter() {
     });
 
     expenses.forEach(expense => {
-      const payerId = expense.payer;
+      const payerId = String(expense.payer);
       if (balances[payerId]) {
         balances[payerId].balance += expense.amount;
       }
@@ -195,31 +195,32 @@ export default function FamilyExpenseSplitter() {
           const member = family?.members.find(m => m.id === memberId);
           if (member) {
             totalShares += member.shares;
-            presentMembersWithShares.push({ memberId, shares: member.shares });
+            presentMembersWithShares.push({ memberId: String(memberId), shares: member.shares });
           }
         });
       });
 
-      presentMembersWithShares.forEach(({ memberId }) => {
-        if (memberId !== payerId) {
-          const member = presentMembersWithShares.find(p => p.memberId === memberId);
-          const costPerShare = expense.amount / totalShares;
-          const personCost = costPerShare * member.shares;
-          if (balances[memberId]) {
-            balances[memberId].balance -= personCost;
-          }
+      const costPerShare = totalShares > 0 ? expense.amount / totalShares : 0;
+      presentMembersWithShares.forEach(({ memberId, shares }) => {
+        if (balances[memberId]) {
+          balances[memberId].balance -= costPerShare * shares;
         }
       });
-
-      const payerShare = presentMembersWithShares.find(p => p.memberId === payerId);
-      if (payerShare) {
-        const costPerShare = expense.amount / totalShares;
-        const personCost = costPerShare * payerShare.shares;
-        balances[payerId].balance -= personCost;
-      }
     });
 
     return balances;
+  };
+
+  // Dépenses dont le payeur ou toutes les personnes présentes ont depuis été supprimés :
+  // elles ne peuvent plus être réparties et sont donc ignorées dans les soldes ci-dessus.
+  const getOrphanedExpenses = () => {
+    const memberIds = new Set(families.flatMap(f => f.members.map(m => String(m.id))));
+    return expenses.filter(expense => {
+      const payerExists = memberIds.has(String(expense.payer));
+      const presentIds = Object.values(expense.presentPeople).flat().map(String);
+      const anyPresentExists = presentIds.some(id => memberIds.has(id));
+      return !payerExists || !anyPresentExists;
+    });
   };
 
   const getTransactions = () => {
@@ -516,6 +517,15 @@ export default function FamilyExpenseSplitter() {
           </button>
 
           <h1 className="text-2xl font-bold text-indigo-900 mb-6">📊 Récapitulatif</h1>
+
+          {getOrphanedExpenses().length > 0 && (
+            <div className="bg-red-50 border-l-4 border-red-400 rounded-lg p-4 mb-4">
+              <p className="text-red-700 font-bold text-sm mb-1">⚠️ Dépenses ignorées dans les soldes</p>
+              <p className="text-red-700 text-sm">
+                {getOrphanedExpenses().length} dépense{getOrphanedExpenses().length > 1 ? 's' : ''} ({getOrphanedExpenses().map(e => `${e.amount.toFixed(2)}€`).join(', ')}) fait{getOrphanedExpenses().length > 1 ? 'ent' : ''} référence à une personne supprimée depuis. Supprime-la{getOrphanedExpenses().length > 1 ? 's' : ''} dans "Toutes les dépenses" ci-dessous et recrée-la{getOrphanedExpenses().length > 1 ? 's' : ''} si besoin.
+              </p>
+            </div>
+          )}
 
           <div className="bg-white rounded-lg shadow-lg p-4 mb-4">
             <h2 className="text-lg font-bold text-indigo-900 mb-3">Soldes</h2>
